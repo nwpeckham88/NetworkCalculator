@@ -1,0 +1,5 @@
+{
+  "name": "Pro Subnet Calculator & Tutor",
+  "description": "A professional-grade IPv4 subnet calculator with real-time binary visualization and AI-powered explanations. Calculate borrowed bits, host ranges, and network details instantly.",
+  "requestFramePermissions": []
+}

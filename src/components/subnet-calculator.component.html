@@ -1,0 +1,615 @@
+<div class="max-w-6xl mx-auto p-4 md:p-8">
+  
+  <!-- Header -->
+  <header class="mb-8 text-center">
+    <h1 class="text-3xl font-extrabold text-slate-900 mb-2 tracking-tight">IPv4 Subnet Calculator</h1>
+    <p class="text-slate-600 text-lg">Analyze network segments, calculate hosts, and visualize bits.</p>
+  </header>
+
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
+    
+    <!-- Left Column: Input and Basic Stats -->
+    <div class="lg:col-span-5 space-y-6">
+      
+      <!-- Input Card -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+          </svg>
+          Configuration
+        </h2>
+        
+        <div class="space-y-5">
+          <!-- IP Input -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+                <label class="block text-sm font-bold text-slate-700">Host IP / Network Address</label>
+                @switch (ipInfo().type) {
+                    @case ('Private') {
+                        <span class="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide border border-green-200">
+                            Private
+                        </span>
+                    }
+                    @case ('Public') {
+                        <span class="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide border border-blue-200">
+                            Public
+                        </span>
+                    }
+                    @case ('Loopback') {
+                         <span class="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide border border-slate-200">
+                            Loopback
+                        </span>
+                    }
+                     @case ('Link-Local') {
+                         <span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide border border-amber-200">
+                            Link-Local
+                        </span>
+                    }
+                    @case ('CGNAT') {
+                         <span class="bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide border border-purple-200">
+                            CGNAT
+                        </span>
+                    }
+                }
+            </div>
+            <input 
+              type="text" 
+              [ngModel]="ipInput()"
+              (input)="updateIp($event)"
+              placeholder="e.g. 192.168.1.15"
+              class="w-full px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition font-mono font-medium"
+              [class.border-red-300]="!isValid() && result().ip && (!result().isValid || configError())"
+              [class.bg-red-50]="!isValid() && result().ip && (!result().isValid || configError())"
+            />
+            @if (!isValid() && result().ip && !result().isValid) {
+              <p class="text-red-600 font-medium text-xs mt-1">Invalid IP Address format.</p>
+            }
+          </div>
+
+          <!-- Initial Subnet Mask Input -->
+          <div class="p-4 bg-slate-50 rounded-lg border border-slate-200"
+               [class.border-red-300]="configError()"
+               [class.bg-red-50]="configError()">
+            <label class="block text-sm font-bold text-slate-700 mb-1">
+              Initial Subnet Mask
+              <span class="float-right font-mono text-slate-600">/{{ parentCidrInput() }}</span>
+            </label>
+            <div class="flex items-center gap-4">
+              <input 
+                type="range" 
+                min="1" 
+                max="32" 
+                [ngModel]="parentCidrInput()"
+                (input)="updateParentCidr($event)"
+                class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-500"
+              />
+                <select 
+                [ngModel]="parentCidrInput()" 
+                (change)="updateParentCidr($event)"
+                class="px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-900 font-mono text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
+                @for (val of cidrValues; track val) {
+                  <option [value]="val">/{{ val }}</option>
+                }
+              </select>
+            </div>
+            <p class="text-xs text-slate-500 mt-2 font-medium">The starting subnet mask (e.g., your current ISP block).</p>
+            
+            @if (configError(); as err) {
+                <div class="mt-3 p-2 bg-white rounded border border-red-200 text-red-700 text-xs">
+                    <p class="font-bold mb-0.5">{{ err.message }}</p>
+                    <p>{{ err.detail }}</p>
+                </div>
+            }
+          </div>
+
+          <!-- New Subnet Mask Input -->
+          <div>
+            <label class="block text-sm font-bold text-slate-700 mb-1">
+              New Subnet Mask
+              <span class="float-right font-mono text-indigo-700 font-bold">/{{ cidrInput() }}</span>
+            </label>
+            <div class="flex items-center gap-4">
+              <input 
+                type="range" 
+                [min]="parentCidrInput()" 
+                max="32" 
+                [ngModel]="cidrInput()"
+                (input)="updateCidr($event)"
+                class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                [disabled]="!isValid() && configError()"
+              />
+              <select 
+                [ngModel]="cidrInput()" 
+                (change)="updateCidr($event)"
+                class="px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-900 font-mono text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                [disabled]="!isValid() && configError()">
+                @for (val of cidrValues; track val) {
+                  <!-- Filter out values smaller than parentCidrInput -->
+                  @if (val >= parentCidrInput()) {
+                    <option [value]="val">/{{ val }}</option>
+                  }
+                }
+              </select>
+            </div>
+            <p class="text-sm text-slate-600 mt-2 font-mono font-medium">{{ result().subnetMask }}</p>
+             @if (!isValid() && cidrInput() < parentCidrInput()) {
+               <p class="text-red-600 font-medium text-xs mt-1">New mask cannot be smaller than initial mask.</p>
+             }
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Stats Card -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h3 class="text-sm font-bold text-slate-600 uppercase tracking-wider mb-4">Network Details</h3>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div class="p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+            <div class="text-xs text-indigo-700 font-bold uppercase mb-1">
+              Initial Network
+            </div>
+            <div class="text-xl font-bold text-slate-900">
+               /{{ result().baseCidr }}
+            </div>
+          </div>
+           <div class="p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+            <div class="text-xs text-indigo-700 font-bold uppercase mb-1">
+              New Mask
+            </div>
+            <div class="text-xl font-bold text-slate-900">
+               /{{ result().cidr }}
+            </div>
+          </div>
+          <div class="p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+            <div class="text-xs text-indigo-700 font-bold uppercase mb-1">Borrowed Bits</div>
+            <div class="text-xl font-bold text-slate-900">{{ result().borrowedBits }}</div>
+            <div class="text-xs text-slate-600 font-medium mt-1">
+              from Initial Mask
+            </div>
+          </div>
+          <div class="p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+            <div class="text-xs text-indigo-700 font-bold uppercase mb-1">Subnets Created</div>
+            <div class="text-xl font-bold text-slate-900">{{ formatNumber(result().subnetsCreated) }}</div>
+            <div class="text-xs text-slate-600 font-medium mt-1">2<sup>{{ result().borrowedBits }}</sup></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right Column: Detailed Results & Visualization -->
+    <div class="lg:col-span-7 space-y-6">
+      
+      <!-- Key Addresses Card -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100 bg-slate-50">
+          <h2 class="font-bold text-slate-800 text-lg">
+            Address Range
+            <span class="text-slate-500 font-normal text-sm ml-2">(for the specific subnet containing the IP)</span>
+          </h2>
+        </div>
+        <div class="p-6 grid gap-6">
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Network Address</label>
+              <div class="font-mono text-xl text-slate-900 font-medium">{{ result().networkAddress }}</div>
+              <div class="text-xs text-slate-500 mt-1 font-medium">Start of subnet</div>
+            </div>
+            <div>
+              <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Broadcast Address</label>
+              <div class="font-mono text-xl text-slate-900 font-medium">{{ result().broadcastAddress }}</div>
+               <div class="text-xs text-slate-500 mt-1 font-medium">End of subnet</div>
+            </div>
+            <div>
+              <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">First Host</label>
+              <div class="font-mono text-xl text-green-700 font-bold">{{ result().firstHost }}</div>
+               <div class="text-xs text-slate-500 mt-1 font-medium">Usable</div>
+            </div>
+            <div>
+              <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Last Host</label>
+              <div class="font-mono text-xl text-green-700 font-bold">{{ result().lastHost }}</div>
+               <div class="text-xs text-slate-500 mt-1 font-medium">Usable</div>
+            </div>
+          </div>
+          
+          <div class="pt-4 border-t border-slate-100">
+             <div class="flex justify-between items-center">
+               <div>
+                  <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Usable Hosts</label>
+                  <div class="text-2xl font-bold text-slate-900">{{ formatNumber(result().hostsPerSubnet) }}</div>
+               </div>
+               <div class="text-right">
+                  <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Host Bits</label>
+                  <div class="text-2xl font-bold text-slate-900">{{ result().hostBits }}</div>
+               </div>
+             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Binary Visualization Card -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-6 overflow-hidden">
+        <h2 class="font-bold text-slate-800 text-lg mb-6">Binary Visualization</h2>
+        
+        <!-- Legend -->
+        <div class="flex flex-wrap gap-4 mb-6 text-sm font-medium">
+          <div class="flex items-center gap-2">
+            <span class="w-4 h-4 rounded bg-blue-500 shadow-sm"></span>
+            <span class="text-slate-700">
+              Initial Network
+            </span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-4 h-4 rounded bg-orange-400 shadow-sm"></span>
+            <span class="text-slate-700">Subnet (Borrowed)</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-4 h-4 rounded bg-slate-200 shadow-sm"></span>
+            <span class="text-slate-700">Host Portion</span>
+          </div>
+        </div>
+
+        <!-- Bits Grid -->
+        <div class="font-mono">
+          
+          @if (visualRows(); as rows) {
+            <div class="grid grid-cols-[auto_1fr] gap-x-2 sm:gap-x-6 gap-y-6 items-start">
+              
+              <!-- IP Label -->
+              <div class="text-slate-500 text-[10px] sm:text-sm text-right font-bold mt-1 sm:mt-2">IP</div>
+              
+              <!-- IP Bits -->
+              <div class="flex flex-col gap-2 w-full overflow-hidden">
+                <!-- Row 1 (Bits 0-15) -->
+                <div class="flex w-full gap-px sm:gap-1">
+                   @for (bit of rows.ip[0]; track $index) {
+                     <span 
+                       class="flex-1 max-w-[2.5rem] h-6 sm:h-8 md:h-10 flex items-center justify-center rounded transition-colors duration-300 text-[9px] sm:text-sm md:text-base font-bold leading-none"
+                       [class.bg-blue-100]="bit.type === 'network'"
+                       [class.text-blue-800]="bit.type === 'network'"
+                       [class.bg-orange-100]="bit.type === 'subnet'"
+                       [class.text-orange-800]="bit.type === 'subnet'"
+                       [class.bg-slate-100]="bit.type === 'host'"
+                       [class.text-slate-600]="bit.type === 'host'"
+                       [class.mr-1]="$index === 7"
+                       [class.sm:mr-3]="$index === 7"
+                       [class.md:mr-4]="$index === 7"
+                     >
+                       {{ bit.value }}
+                     </span>
+                   }
+                </div>
+                <!-- Row 2 (Bits 16-31) -->
+                <div class="flex w-full gap-px sm:gap-1">
+                   @for (bit of rows.ip[1]; track $index) {
+                     <span 
+                       class="flex-1 max-w-[2.5rem] h-6 sm:h-8 md:h-10 flex items-center justify-center rounded transition-colors duration-300 text-[9px] sm:text-sm md:text-base font-bold leading-none"
+                       [class.bg-blue-100]="bit.type === 'network'"
+                       [class.text-blue-800]="bit.type === 'network'"
+                       [class.bg-orange-100]="bit.type === 'subnet'"
+                       [class.text-orange-800]="bit.type === 'subnet'"
+                       [class.bg-slate-100]="bit.type === 'host'"
+                       [class.text-slate-600]="bit.type === 'host'"
+                       [class.mr-1]="$index === 7"
+                       [class.sm:mr-3]="$index === 7"
+                       [class.md:mr-4]="$index === 7"
+                     >
+                       {{ bit.value }}
+                     </span>
+                   }
+                </div>
+              </div>
+
+              <!-- Mask Label -->
+              <div class="text-slate-500 text-[10px] sm:text-sm text-right font-bold mt-1 sm:mt-2">Mask</div>
+              
+              <!-- Mask Bits -->
+              <div class="flex flex-col gap-2 w-full overflow-hidden">
+                <!-- Row 1 -->
+                <div class="flex w-full gap-px sm:gap-1">
+                   @for (bit of rows.mask[0]; track $index) {
+                     <span 
+                       class="flex-1 max-w-[2.5rem] h-6 sm:h-8 md:h-10 flex items-center justify-center rounded bg-slate-50 text-slate-400 border border-slate-200 text-[9px] sm:text-sm md:text-base leading-none"
+                       [class.font-bold]="bit === '1'"
+                       [class.text-slate-800]="bit === '1'"
+                       [class.mr-1]="$index === 7"
+                       [class.sm:mr-3]="$index === 7"
+                       [class.md:mr-4]="$index === 7"
+                     >
+                       {{ bit }}
+                     </span>
+                   }
+                </div>
+                <!-- Row 2 -->
+                <div class="flex w-full gap-px sm:gap-1">
+                   @for (bit of rows.mask[1]; track $index) {
+                     <span 
+                       class="flex-1 max-w-[2.5rem] h-6 sm:h-8 md:h-10 flex items-center justify-center rounded bg-slate-50 text-slate-400 border border-slate-200 text-[9px] sm:text-sm md:text-base leading-none"
+                       [class.font-bold]="bit === '1'"
+                       [class.text-slate-800]="bit === '1'"
+                       [class.mr-1]="$index === 7"
+                       [class.sm:mr-3]="$index === 7"
+                       [class.md:mr-4]="$index === 7"
+                     >
+                       {{ bit }}
+                     </span>
+                   }
+                </div>
+              </div>
+
+            </div>
+          }
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Subnet List Table -->
+  @if (subnetTable(); as table) {
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+        <h2 class="font-bold text-slate-800 text-lg">All Subnets</h2>
+        <span class="text-xs font-bold text-slate-600 bg-slate-200 px-3 py-1 rounded-full">
+          Total: {{ table.totalCount | number }}
+        </span>
+      </div>
+      
+      <div class="overflow-x-auto max-h-96">
+        <table class="w-full text-sm text-left">
+          <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 sticky top-0 uppercase text-xs tracking-wider">
+            <tr>
+              <th class="px-6 py-3 whitespace-nowrap">#</th>
+              <th class="px-6 py-3 whitespace-nowrap">Network Address</th>
+              <th class="px-6 py-3 whitespace-nowrap">Host Range</th>
+              <th class="px-6 py-3 whitespace-nowrap">Broadcast</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 font-mono">
+            @for (row of table.rows; track row.index) {
+              <tr [class.bg-indigo-50]="row.isCurrent" [class.text-indigo-900]="row.isCurrent" [class.font-bold]="row.isCurrent" class="text-slate-600 hover:bg-slate-50 transition-colors">
+                <td class="px-6 py-3 opacity-60">{{ row.index }}</td>
+                <td class="px-6 py-3">{{ row.networkAddress }}</td>
+                <td class="px-6 py-3">{{ row.range }}</td>
+                <td class="px-6 py-3">{{ row.broadcastAddress }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        
+        @if (table.truncated) {
+            <div class="p-4 text-center text-slate-500 text-xs italic bg-slate-50 border-t border-slate-100 font-medium">
+                List truncated. Showing first {{ table.rows.length }} subnets to prevent performance issues.
+            </div>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- Google Ads Container -->
+  <div class="mt-8 bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex justify-center items-center min-h-[120px]">
+    <div class="text-center w-full">
+        <!-- Google AdSense Unit -->
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+             data-ad-slot="XXXXXXXXXX"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <p class="text-xs text-slate-400 mt-2">Advertisement</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- Floating AI Tutor -->
+<div class="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4">
+  
+  <!-- Chat Window -->
+  @if (isChatOpen()) {
+    <div class="bg-white w-80 sm:w-96 max-w-[calc(100vw-3rem)] rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[500px]">
+      
+      <!-- Header -->
+      <div class="bg-slate-900 text-white p-4 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-2 font-bold">
+          <span>✨</span> AI Tutor
+          @if (llmService.config()) {
+             <button (click)="openSettings()" title="Settings" class="bg-slate-800 hover:bg-slate-700 p-1 rounded-md text-xs text-slate-300 ml-2 transition">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+             </button>
+          }
+        </div>
+        <button (click)="toggleChat()" class="text-slate-400 hover:text-white transition">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L11.414 10 7.121 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Main Content Area -->
+      @if (showSettings() || !llmService.config()) {
+        <!-- Settings Form -->
+        <div class="flex-1 overflow-y-auto p-6 bg-slate-50 flex flex-col gap-6">
+            <div class="text-center">
+                <div class="bg-indigo-100 text-indigo-600 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11.536 19.464a2.5 2.5 0 01-3.536 0L5.293 16.707a2.5 2.5 0 010-3.536l.464-.464L10 12l.715.048a6 6 0 117.285-5.048z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800">Setup AI Tutor</h3>
+                <p class="text-sm text-slate-500 mt-1">Enter your API key to enable the chat.</p>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Provider</label>
+                    <select 
+                        [ngModel]="settingsProvider()" 
+                        (ngModelChange)="settingsProvider.set($event)"
+                        class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        <option value="gemini">Google Gemini</option>
+                        <option value="openai">OpenAI (ChatGPT)</option>
+                        <option value="anthropic">Anthropic (Claude)</option>
+                    </select>
+                    <p class="text-[10px] text-slate-400 mt-1">
+                        @switch (settingsProvider()) {
+                            @case ('gemini') { Uses Google's GenAI SDK. }
+                            @case ('openai') { Connects to OpenAI API. }
+                            @case ('anthropic') { Connects to Anthropic API. Note: May require a proxy. }
+                        }
+                    </p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">API Key</label>
+                    <input 
+                        type="password" 
+                        [ngModel]="settingsApiKey()"
+                        (ngModelChange)="settingsApiKey.set($event)"
+                        placeholder="sk-..."
+                        class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-mono"
+                    />
+                </div>
+                
+                <button 
+                    (click)="saveSettings()"
+                    [disabled]="!settingsApiKey()"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-bold text-sm transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                    Save & Connect
+                </button>
+
+                @if (llmService.config()) {
+                   <button 
+                        (click)="clearSettings()"
+                        class="w-full text-xs text-red-500 hover:text-red-700 font-medium py-2">
+                        Remove Saved Key
+                    </button>
+                    <div class="text-center">
+                         <button (click)="showSettings.set(false)" class="text-xs text-slate-400 hover:text-slate-600 underline">Cancel</button>
+                    </div>
+                }
+            </div>
+
+            <div class="mt-auto text-center">
+                <p class="text-[10px] text-slate-400 leading-tight">
+                    Your API key is stored locally in your browser and sent directly to the provider. It never touches our servers.
+                </p>
+            </div>
+        </div>
+      } @else {
+        <!-- Chat Interface -->
+        <div #chatScrollContainer class="flex-1 overflow-y-auto p-4 bg-slate-50 space-y-4">
+            
+            @if (chatMessages().length === 0) {
+            <div class="text-center pt-8 pb-4">
+                <div class="bg-indigo-100 text-indigo-600 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+                </div>
+                <p class="text-slate-600 text-sm font-medium">
+                Connected to {{ llmService.config()?.provider | titlecase }}! <br/>
+                Ask me about this subnet.
+                </p>
+            </div>
+
+            <!-- Suggestions -->
+            <div class="grid grid-cols-1 gap-2">
+                @for (question of suggestedQuestions; track question) {
+                <button 
+                    (click)="sendChat(question)"
+                    [disabled]="!isValid() || isThinking()"
+                    class="text-left text-xs bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-700 px-3 py-2 rounded-lg transition-colors shadow-sm">
+                    {{ question }}
+                </button>
+                }
+            </div>
+            }
+
+            @for (msg of chatMessages(); track $index) {
+            <div [class.items-end]="msg.role === 'user'" [class.items-start]="msg.role === 'ai'" class="flex flex-col gap-1">
+                <div 
+                [class.bg-indigo-600]="msg.role === 'user'" 
+                [class.text-white]="msg.role === 'user'"
+                [class.bg-white]="msg.role === 'ai'"
+                [class.text-slate-800]="msg.role === 'ai'"
+                [class.border]="msg.role === 'ai'"
+                [class.border-slate-200]="msg.role === 'ai'"
+                class="max-w-[85%] px-4 py-2 rounded-2xl text-sm leading-relaxed shadow-sm"
+                [class.rounded-tr-none]="msg.role === 'user'"
+                [class.rounded-tl-none]="msg.role === 'ai'">
+                {{ msg.text }}
+                </div>
+                <span class="text-[10px] text-slate-400 px-1">
+                {{ msg.role === 'user' ? 'You' : (llmService.config()?.provider | titlecase) }}
+                </span>
+            </div>
+            }
+
+            @if (isThinking()) {
+            <div class="flex items-start gap-1">
+                <div class="bg-white border border-slate-200 px-4 py-3 rounded-2xl rounded-tl-none shadow-sm flex gap-1">
+                <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></span>
+                <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-100"></span>
+                <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-200"></span>
+                </div>
+            </div>
+            }
+        </div>
+
+        <!-- Input Area -->
+        <div class="p-3 bg-white border-t border-slate-200 shrink-0">
+            <form (submit)="sendChat(); $event.preventDefault()" class="relative">
+            <input 
+                type="text" 
+                [ngModel]="chatInput()"
+                (ngModelChange)="chatInput.set($event)"
+                name="chatInput"
+                [disabled]="isThinking() || !isValid()"
+                placeholder="Ask a question..."
+                class="w-full pl-4 pr-10 py-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm transition disabled:opacity-60"
+            />
+            <button 
+                type="submit"
+                [disabled]="!chatInput() || isThinking() || !isValid()"
+                class="absolute right-2 top-1.5 p-1 text-indigo-600 hover:text-indigo-800 disabled:text-slate-300 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clip-rule="evenodd" />
+                </svg>
+            </button>
+            </form>
+        </div>
+      }
+
+    </div>
+  }
+
+  <!-- Toggle Button -->
+  <button 
+    (click)="toggleChat()"
+    class="bg-slate-900 hover:bg-slate-800 text-white p-4 rounded-full shadow-xl transition-all hover:scale-105 active:scale-95 group relative z-50">
+    @if (!isChatOpen() && !llmService.config()) {
+       <!-- Pulse effect to draw attention when no config -->
+       <span class="absolute top-0 right-0 -mt-1 -mr-1 flex h-3 w-3">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+      </span>
+    }
+    
+    @if (isChatOpen()) {
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+      </svg>
+    } @else {
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+      </svg>
+    }
+  </button>
+
+</div>
