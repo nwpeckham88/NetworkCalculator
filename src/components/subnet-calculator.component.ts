@@ -25,6 +25,14 @@ export class SubnetCalculatorComponent implements AfterViewInit {
 
   @ViewChild('chatScrollContainer') private chatScrollContainer!: ElementRef;
 
+  // Ad Configuration - Hide ads if placeholders are present
+  readonly adClient = 'ca-pub-XXXXXXXXXXXXXXXX';
+  readonly adSlot = 'XXXXXXXXXX';
+
+  get showAds(): boolean {
+    return this.adClient !== 'ca-pub-XXXXXXXXXXXXXXXX' && this.adSlot !== 'XXXXXXXXXX';
+  }
+
   // Signals
   ipInput = signal<string>('192.168.1.10');
   cidrInput = signal<number>(26); // New Subnet Mask
@@ -161,12 +169,14 @@ export class SubnetCalculatorComponent implements AfterViewInit {
   });
 
   ngAfterViewInit() {
-    try {
-      // Initialize ads
-      (window as any).adsbygoogle = (window as any).adsbygoogle || [];
-      (window as any).adsbygoogle.push({});
-    } catch (e) {
-      console.error('AdSense error:', e);
+    if (this.showAds) {
+        try {
+        // Initialize ads
+        (window as any).adsbygoogle = (window as any).adsbygoogle || [];
+        (window as any).adsbygoogle.push({});
+        } catch (e) {
+        console.error('AdSense error:', e);
+        }
     }
   }
 
